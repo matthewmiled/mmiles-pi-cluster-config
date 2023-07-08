@@ -12,3 +12,15 @@
   * `touch ssh`
 
 # SSH Access
+
+* Insert SD card into pi
+
+* Using another PC or phone, log into admin dashboard of the router that you configured the OS to connect to in the Raspberry Pi Imager tool.
+
+* You should see the name of your pi in the 'Connected Devices' (this name depends on what you set when you flashed the SD card). Get the IP address of the device.
+
+* Using the `username` you set in imager tool, SSH into the device:
+  * `ssh <user?@<ip-address>`
+  * Then enter the password you set in the imager tool
+ 
+* 
