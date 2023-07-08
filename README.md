@@ -70,3 +70,11 @@ band=bg
  
 * Back on the worker node, execute the below again and it should connect to the cluster:
   * `microk8s.join <master_ip>:<port>/<token>`
+ 
+```
+microk8s.kubectl get nodes
+
+NAME                  STATUS   ROLES    AGE   VERSION
+mmiles-pi-master      Ready    <none>   54m   v1.27.2
+mmiles-pi-worker-00   Ready    <none>   7s    v1.27.2
+```
