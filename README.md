@@ -28,12 +28,9 @@
   * `nano etc/hostname`
   * `nano etc/hosts`
  
-* The 64 bit OS seems to try to connect to wifi using the 5 GHz band - which often seems to cut out. To force it to use the 2.4 GHz, SSH into the pi and create a file at `/mnt/boot/system-connections` and populate it with:
+* The 64 bit OS seems to try to connect to wifi using the 5 GHz band - which often seems to cut out. To force it to use the 2.4 GHz, SSH into the pi and `sudo nano` the file `/etc/wpa_supplicant/wpa_supplicant.conf`. Inside it, add the line:
+  *  `freq_list=2412 2417 2422 2427 2432 2437 2442 2447 2452 2457 2462 2467 2472`
 
-```
-[802-11-wireless]
-band=bg
-``` 
  
 # Installing MicroK8s
 
@@ -54,10 +51,10 @@ band=bg
  
 * Adding following to PATH to ensure you can execute microk8s commands:
   * `export PATH=$PATH:/snap/bin`
-  * Can also add this to 
+  * Can also add this to `bashrc`
 
 * On the node you want to be master, run the command:
-  * `sudo microk8s.add-node`
+  * `microk8s.add-node`
   * It should spit out a connection string in the form of `<master_ip>:<port>/<token>`
  
 * On a worker node - do all of the same but instead of running the master node command, run:
@@ -72,9 +69,25 @@ band=bg
   * `microk8s.join <master_ip>:<port>/<token>`
  
 ```
-microk8s.kubectl get nodes
+matt@mmiles-pi-master:/etc $ microk8s.kubectl get nodes
 
 NAME                  STATUS   ROLES    AGE   VERSION
 mmiles-pi-master      Ready    <none>   54m   v1.27.2
 mmiles-pi-worker-00   Ready    <none>   7s    v1.27.2
 ```
+
+* If you disconnect a pi, the STATUS should change to `NotReady`
+
+# TODO
+
+* Now have the pi's and cluster set up at the most basic level - if you SSH into one and do `microk8s.kubectl get nodes` - you can see the devices listed.
+
+* The internet connection of the devices is still pretty intermittent - when they're connected to 2.4GHz it seems fine, but they often change to 5GHz which then makes them disconnect and unable to SSH into them. The fix stated above doesn't really work. Need to make this more robust, or even connect them directly via ethernet.
+
+* SSH currently uses a user/password and the IP - should set up SSH keys.
+
+* Devices currently have dynamic IPs, so if these were to change we would have to keep putting in new IPs into the `ssh matt@<ip>` command. Can change this to static in the home wifi admin dashboard I think.
+
+* Set up k9s so can access cluster without directly ssh-ing into one of the nodes/pis.
+
+* Look at setting up helm etc.
