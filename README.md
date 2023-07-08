@@ -90,4 +90,6 @@ mmiles-pi-worker-00   Ready    <none>   7s    v1.27.2
 
 * Set up k9s so can access cluster without directly ssh-ing into one of the nodes/pis.
 
+* Create some namespaces
+
 * Look at setting up helm etc.
