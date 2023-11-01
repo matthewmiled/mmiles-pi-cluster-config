@@ -11,6 +11,30 @@
   * `cd /Volumes/bootfs`
   * `touch ssh`
  
+# Networking
+
+[add network diagram here]
+
+* This project uses the TP-Link TL-WR802N Nano Router to create a private wireless network, separate to the main home Wifi network.
+
+* We are using WISP (Hotspot) mode in the nano router - so it wirelessly connects to the main home network, and then connects to a network switch via ethernet. The network switch is the TP-Link TL-SG105S and this then connects to the Pis via ethernet. The private network name is `mmiles-cluster-network`
+
+* Within the main home router admin panel, it was found that the DHCP range was 192.168.1.10 - 192.168.1.254
+    * So the nano router needs to have a different range to this. The range for the private network (configured via the nano router) is 192.168.0.100 - 192.168.0.199
+ 
+* Once the nano router is setup and the `mmiles-cluster-network` network can access the internet, it is connected via ethernet to the network switch.
+
+* The network switch is then connected to each of the Pis.
+
+* In the `DHCP Clients` menu of the nano router admin panel, the pis should appear with IP addresses such as:
+    * 192.168.0.102
+    * 192.168.0.103
+    * 192.168.0.105
+    * Can see that these are within the range stated above
+ 
+* Should set these as reserved addresses in the `Address Reservation` section.
+
+
 
 # SSH Access
 
