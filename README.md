@@ -1,15 +1,12 @@
 # Installing OS
 
-* For this build - we are using the Raspberry Pi OS Lite (64 Bit). The underlying Debian version is 11 (bullseye)`.
+* For this build - we are using the `Ubuntu Server 20.04.5LTS (64-BIT)` OS
 
 * There is a [Raspberry Pi Imager tool](https://www.raspberrypi.com/software/) that can be used to write the OS to an SD card.
 
-* It will give you the option to set up WiFi automatically, and also SSH access.
+* It will give you the option to set up WiFi automatically (we're not doing this), and also SSH access.
   * At the moment we're just using SSH password access
 
-* Once flashed, cd into the SD card volumne from terminal and create an ssh file:
-  * `cd /Volumes/bootfs`
-  * `touch ssh`
  
 # Networking
 
@@ -26,81 +23,111 @@
 
 * The network switch is then connected to each of the Pis.
 
-* In the `DHCP Clients` menu of the nano router admin panel, the pis should appear with IP addresses such as:
-    * 192.168.0.102
-    * 192.168.0.103
-    * 192.168.0.105
-    * Can see that these are within the range stated above
- 
-* Should set these as reserved addresses in the `Address Reservation` section.
+* When you place the SD cards into the Pis and boot them up, they should appear in the `DHCP Clients` list, with assigned IP addresses within the range stated above.
 
+* In the `Address Reservation` section of the TP Link Nano router admin panel, we are going to set these as static/reserved IPs:
 
+[Add images of TP link admin panel here]
+
+* 192.168.0.101 (Master Pi)
+* 192.168.0.102 (Worker 00)
+* 192.168.0.103 (Worker 01)
 
 # SSH Access
-
-* Insert SD card into pi
-
-* Using another PC or phone, log into admin dashboard of the router that you configured the OS to connect to in the Raspberry Pi Imager tool (i.e. your home WiFI network).
-
-* You should see the name of your pi in the 'Connected Devices' (this name depends on what you set when you flashed the SD card). Get the IP address of the device.
 
 * Using the `username` you set in imager tool, SSH into the device:
   * `ssh <user?@<ip-address>`
   * Then enter the password you set in the imager tool
  
-* The hostname that is defined in the imager tool (e.g. `mmiles-master`) can be seen/changed in (assuming you have ssh'd into the node):
-  * `nano etc/hostname`
-  * `nano etc/hosts`
  
-* The 64 bit OS seems to try to connect to wifi using the 5 GHz band - which often seems to cut out. To force it to use the 2.4 GHz, SSH into the pi and `sudo nano` the file `/etc/wpa_supplicant/wpa_supplicant.conf`. Inside it, add the line:
-  *  `freq_list=2412 2417 2422 2427 2432 2437 2442 2447 2452 2457 2462 2467 2472`
+# Installing k3s
 
- 
-# Installing MicroK8s
-
-* Firstly, add the following lines to the file at `/boot/cmdline.txt`:
-  * `cgroup_enable=memory cgroup_memory=1`
-  * Then run `sudo reboot`
-
-* MicroK8s is only compatible with the arm64 CPU architecture. The 64 bit Linux Raspberry Pi OS uses arm64, but the 32 bit uses armhf:
-  * Can tell which architecture is used by running `dpkg --print-architecture`
-
-* `sudo apt-get update`
-* `sudo apt-get install snapd`
-* `sudo snap install microk8s --classic`
-
-* Give your user permissions to access MicroK8s:
-  * `sudo usermod -a -G microk8s <user>`
-  * `newgrp microk8s`
- 
-* Adding following to PATH to ensure you can execute microk8s commands:
-  * `export PATH=$PATH:/snap/bin`
-  * Can also add this to `bashrc`
-
-* On the node you want to be master, run the command:
-  * `microk8s.add-node`
-  * It should spit out a connection string in the form of `<master_ip>:<port>/<token>`
- 
-* On a worker node - do all of the same but instead of running the master node command, run:
-  * `microk8s.join <master_ip>:<port>/<token>`
-
-* You will likely see a message such as:
-  * `Connection failed. The hostname (<worker_name>) of the joining node does not resolve to the IP "<worker_ip>". Refusing join (400).`
-  * Back in your master node, do a `sudo nano` of the file at `etc/hosts`
-  * At the bottom, add `<worker_ip>    <worker_name>`
- 
-* Back on the worker node, execute the below again and it should connect to the cluster:
-  * `microk8s.join <master_ip>:<port>/<token>`
- 
 ```
-matt@mmiles-pi-master:/etc $ microk8s.kubectl get nodes
+sudo apt upgrade -y
 
-NAME                  STATUS   ROLES    AGE   VERSION
-mmiles-pi-master      Ready    <none>   54m   v1.27.2
-mmiles-pi-worker-00   Ready    <none>   7s    v1.27.2
+sudo apt install -y docker.io
+
+sudo docker info
+
+sudo sed -i \
+'$ s/$/ cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1 swapaccount=1/' \
+/boot/firmware/cmdline.txt
+
+sudo reboot
 ```
 
-* If you disconnect a pi, the STATUS should change to `NotReady`
+On the 'master' Pi:
+
+`curl -sfL https://get.k3s.io | sh -`
+
+Then get a token:
+
+`sudo cat /var/lib/rancher/k3s/server/node-token`
+
+Then on the worker node:
+
+`curl -sfL https://get.k3s.io | K3S_URL=https://$YOUR_SERVER_NODE_IP:6443 K3S_TOKEN=$YOUR_CLUSTER_TOKEN sh -`
+
+Back on your master node, there should be some config stored in k3s config file:
+
+`sudo k3s kubectl config view --raw`
+
+This probably won't appear on the worker nodes.
+
+We're going to copy this into the standard `.kube/config` file:
+
+```
+export KUBECONFIG=~/.kube/config
+
+mkdir ~/.kube 2> /dev/null
+
+sudo k3s kubectl config view --raw > "$KUBECONFIG"
+
+chmod 600 "$KUBECONFIG"
+```
+
+We'll also add `export KUBECONFIG=~/.kube/config` to `~/.profile` and `~/.bashrc` on the master node to make it persist on reboot.
+
+
+Now you should be able to run:
+
+`k3s kubectl get nodes` or just `kubectl get nodes`
+
+And see the master and any worker nodes you've attached.
+
+
+# Local Machine Access
+
+Firstly install kubectl on your machine:
+
+`brew install kubernetes-cli`
+
+Then go into your master pi and get the k3 config:
+
+`sudo k3s kubectl config view --raw`
+
+Copy it and put it in your local machines `~.kube/config` file.
+
+You will probably need to replace the server filed in the config from:
+
+`server: https://127.0.0.1:6443`
+
+To whatever the actual IP of your master node is:
+
+`server: https://192.168.0.101:6443`
+
+Then if you do a `kubectl get nodes` from local machine, you should get the status of pi cluster:
+
+```
+NAME                  STATUS     ROLES                  AGE   VERSION
+mmiles-pi-worker-00   NotReady   <none>                 69m   v1.28.4+k3s2
+mmiles-pi-master      Ready      control-plane,master   81m   v1.28.4+k3s2
+mmiles-pi-worker-01   Ready      <none>                 13m   v1.28.4+k3s2
+```
+
+(Node 00 isn't ready because it's disconnected)
+
+
 
 # TODO
 
